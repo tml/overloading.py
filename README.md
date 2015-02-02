@@ -4,6 +4,42 @@
 
 The `overloading` module provides function and method dispatching based on the type and number of runtime arguments.
 
+#### First example
+
+Original code:
+
+```python
+class DB:
+
+    def get(self, *args):
+        if len(args) == 1 and isinstance(args[0], Query):
+            return self.get_by_query(args[0])
+        elif len(args) == 2:
+            return self.get_by_id(id=args[0], model=args[1])
+        else:
+            raise TypeError()
+
+    def get_by_query(self, query):
+        ...
+
+    def get_by_id(self, id, model):
+        ...
+```
+
+The same thing with overloading:
+
+```python
+class DB:
+
+    @overloaded
+    def get(self, query: Query):
+        ...
+
+    @overloads(get)
+    def get(self, id, model):
+        ...
+```
+
 
 ## Installation
 
@@ -12,7 +48,7 @@ The `overloading` module provides function and method dispatching based on the t
 
 ## Usage
 
-Use the `overloaded` and `overloads` decorators to register multiple implementations of a function. All variants must differ by their parameter type or count. Argument types are specified as [annotations](https://www.python.org/dev/peps/pep-3107/).
+Use the `overloaded` and `overloads` decorators to register multiple implementations of a function that differ by their parameter type or count. Argument types are specified as [annotations](https://www.python.org/dev/peps/pep-3107/).
 
 When the overloaded function is called, the module invokes the correct implementation by finding the best match to the supplied arguments.
 
@@ -47,8 +83,6 @@ TypeError: Invalid type or number of arguments when calling 'f'.
 'two args of any type'
 ```
 
-There are no restrictions on the kinds of parameters a function signature may contain. However, the argument matching algorithm only examines regular parameters (those before `*` or `*args` if present).
-
 Keyword arguments can be used as normal:
 
 ```python
@@ -58,24 +92,23 @@ Keyword arguments can be used as normal:
 
 #### Specifying a default
 
-One of the functions can be designated as a fallback that will be called in case a match is not found. This is done by including the catch-all variable for positional arguments (`*args`) in the function definition.
+One of the functions can be designated as a fallback that will be called in case a match is not found. This is done by including the catch-all variable for positional arguments (`*args`).
 
 ```python
 @overloaded
-def f(x):
-    return True
+def f(x:str):
+    return 'string'
 
 @overloads(f)
-def f(*args):
-    # Do something with `args` or raise a custom error.
-    return False
+def f(*args, **kwargs):
+    return 'default'
 
 >>> f()
-False
->>> f(1)
-True
->>> f(1, 2)
-False
+'default'
+>>> f('a')
+'string'
+>>> f(100)
+'default'
 ```
 
 #### Errors
@@ -112,11 +145,11 @@ Everything works the same when overloading methods on classes:
 class C:
 
     @overloaded
-    def f(self):
+    def __init__(self):
         ...
 
-    @overloads(f)
-    def f(self, foo:int, bar:int):
+    @overloads(__init__)
+    def __init__(self, foo:list):
         ...
 ```
 
@@ -149,7 +182,7 @@ class S(C):
 
 #### Hooks for shared code
 
-Code that should be executed no matter which implementation is called can be placed in functions labeled with the identifiers `'before'` and `'after'`:
+Code that should be executed no matter which implementation is called can be placed in functions labeled with the identifiers `'before'` and `'after'`. They are particularly useful in connection with `__init__` methods.
 
 ```python
 @overloaded
@@ -203,6 +236,8 @@ def g(foo):
 'g'
 ```
 
+There are no restrictions on the kinds of parameters a function signature may contain. However, the argument matching algorithm only examines regular parameters (those before `*` or `*args` if present). In other words, arguments consumed by catch-all variables or Py3-style keyword-only arguments do not count towards match quality.
+
 
 ## Details
 
@@ -248,7 +283,7 @@ There is one exception to the signature uniqueness requirement. The default impl
 
 #### More on optional parameters
 
-Even though optional parameters are ignored when assessing signature uniqueness, they do count at invocation time when the actual argument matching is carried out. Here is an artificial example that demonstrates this:
+Even though optional parameters are ignored when assessing signature uniqueness, they do matter at invocation time when the actual argument matching is carried out. Here is an artificial example that demonstrates this:
 
 ```python
 @overloaded
