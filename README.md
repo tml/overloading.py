@@ -4,11 +4,12 @@
 
 `overloading` is a module that provides function dispatching based on the types and number of runtime arguments.
 
-What this means is that, when an overloaded function is invoked, the dispatcher compares the supplied arguments to available function signatures and calls the implementation that provides the most accurate match.
+When an overloaded function is invoked, the dispatcher compares the supplied arguments to available function signatures and calls the implementation that provides the most accurate match.
 
 #### Features
 
 * Function validation upon registration and detailed resolution rules guarantee a unique, well-defined outcome at runtime.
+* Implements function resolution caching for great performance.
 * Supports optional parameters (default values) in function signatures.
 * Evaluates both positional and keyword arguments when resolving the best match.
 * Supports fallback functions and execution of shared code.
@@ -51,6 +52,32 @@ class DB:
         ...
 ```
 
+#### Why use overloading instead of \*args / **kwargs?
+
+*   Explicit function signatures
+*   No more mechanical argument validation and error throwing in the function body
+*   Clean way of handling different behaviors in separate functions
+
+#### Why use overloading instead of functions with different names?
+
+*   The calling code does not need to depend on argument types.
+*   The name of the function may not always be chosen freely. For example, you may want to instantiate a class based on a variable set of arguments — but there is only one `__init__`.
+*   Sometimes you just *want* to expose a single function, particularly when separate names don't add semantic value.
+
+    Consider:
+    ```python
+    def feed(creature:Human):
+        ...
+    def feed(creature:Dog):
+        ...
+    ```
+    vs:
+    ```python
+    def feed_human(human):
+        ...
+    def feed_dog(dog):
+        ...
+    ```
 
 ## Installation
 
@@ -192,7 +219,7 @@ class S(C):
 
 The individual functions can be defined in any order. However, the first function (wrapped with the initial `overloaded` decorator) establishes the shared name by which the overloaded function is invoked.
 
-The names of the subsequent functions do not matter. They can share the invocation name, have unique names, or be bound to a dummy name to avoid repetition:
+The names of the subsequent functions are of no importance. They can share the invocation name, have unique names, or be bound to a dummy name to avoid repetition:
 
 ```python
 @overloaded
@@ -263,7 +290,7 @@ The best match between a set of arguments and a group of function signatures is 
 
 1.  Filter out any functions that cause a mismatch based on argument type, count, or name.
 2.  Pick the function that accepts the most arguments to fill its regular parameter slots.
-3.  Pick the function whose signature matches the most arguments in terms of types.
+3.  Pick the function whose signature matches the most arguments in terms of types (as opposed to arguments that match because *any* type is allowed).
 4.  Pick the function with the greatest number of exact matches in the previous step (as opposed to matches due to subtyping).
 5.  Pick the function that, in terms of parameter order, is the first to provide a better type match than competing functions.
 6.  Pick the function whose signature contains the greatest number of required parameters.
@@ -290,7 +317,7 @@ def g(foo:int):
 'expects integer'
 >>> f('hello')
 'expects string'
->>> g('hello')    # Bypass dispatcher and call 'g' regardless of arg type.
+>>> g('hello')    # Bypass dispatcher and call `g` regardless of arg type.
 'expects integer'
 ```
 
@@ -306,7 +333,7 @@ This restriction may be relaxed in the future. A system of abstract base classes
 
 #### A note on parameters
 
-There are no restrictions on the kinds of parameters a function signature may contain. However, the argument matching algorithm only examines *regular* parameters (those before `*` or `*args` if present). In other words, arguments consumed by catch-all variables or Py3-style keyword-only arguments do not count towards match quality.
+There are no restrictions on the kinds of parameters a function signature may contain. However, the argument matching algorithm only examines *regular* parameters (those before `*` or `*args` if present). In other words, arguments consumed by catch-all variables or Py3-style keyword-only parameters do not count towards match quality.
 
 #### Advanced example: Optional parameters
 
